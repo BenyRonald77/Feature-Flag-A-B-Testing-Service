@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite tidak mendukung enum native Prisma, jadi "type"/"eventType"
+// disimpan sebagai String dan divalidasi lewat union type TypeScript
+// (lihat src/lib/types.ts).
+
+model Admin {
+  id           String @id @default(cuid())
+  name         String
+  email        String @unique
+  passwordHash String
+}
+
+model Flag {
+  id                 String   @id @default(cuid())
+  key                String   @unique
+  name               String
+  description        String?
+  type               String   @default("BOOLEAN")
+  enabled            Boolean  @default(false)
+  rolloutPercentage  Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  variants    Variant[]
+  assignments Assignment[]
+  events      Event[]
+}
+
+model Variant {
+  id                String @id @default(cuid())
+  flagId            String
+  flag              Flag   @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  key               String
+  name              String
+  trafficPercentage Int
+
+  assignments Assignment[]
+  events      Event[]
+
+  @@unique([flagId, key])
+}
+
+// Assignment STICKY untuk flag EXPERIMENT - dibuat sekali, tidak pernah
+// berubah walau alokasi traffic variant diubah admin setelahnya.
+model Assignment {
+  id         String   @id @default(cuid())
+  flagId     String
+  flag       Flag     @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  userId     String
+  variantId  String
+  variant    Variant  @relation(fields: [variantId], references: [id])
+  assignedAt DateTime @default(now())
+
+  @@unique([flagId, userId])
+}
+
+model Event {
+  id         String   @id @default(cuid())
+  flagId     String
+  flag       Flag     @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  userId     String
+  // variantKey selalu terisi: key Variant untuk flag EXPERIMENT, atau
+  // "enabled"/"disabled" untuk flag BOOLEAN (yang tidak punya baris Variant).
+  variantKey String
+  variantId  String?
+  variant    Variant? @relation(fields: [variantId], references: [id])
+  type       String
+  createdAt  DateTime @default(now())
+
+  @@index([flagId, variantKey, type])
+}
