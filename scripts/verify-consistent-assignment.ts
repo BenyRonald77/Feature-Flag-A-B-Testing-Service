@@ -39,6 +39,7 @@ async function main() {
   console.log(`  -> Konsisten (selalu variant yang sama)? ${stableBeforeChange ? "YA" : "TIDAK"}`);
 
   const assignedVariant = results[0].variantKey;
+  if (!assignedVariant) throw new Error("Variant tidak terdefinisi, pastikan flag experiment aktif");
 
   console.log(`\nAdmin mengubah alokasi traffic (variant "${assignedVariant}" diturunkan drastis)...`);
   const otherKey = assignedVariant === "a" ? "b" : "a";
